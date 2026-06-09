@@ -1,5 +1,5 @@
 
-from cli.lib.search_util import load_movies
+from lib.search_util import load_movies
 
 def seach_command(query,n_result):
     data=load_movies()
