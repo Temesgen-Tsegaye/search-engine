@@ -7,3 +7,7 @@ DATA_PATH = PROJECT_ROOT / "data" / "movies.json"
 def load_movies()->list[dict]:
     with open(DATA_PATH, 'r') as f:
         return json.load(f)["movies"]
+    
+def load_stop_words()->set[str]:
+    with open(PROJECT_ROOT / "data" / "stop_words.txt", 'r') as f:
+        return set(f.read().splitlines())
