@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 
 import argparse
-from lib.keyword_search import seach_command,build_index
+from lib.keyword_search import idf_command, seach_command,build_index,tf_command
 def main() -> None:
     parser = argparse.ArgumentParser(description="Keyword Search CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     search_parser = subparsers.add_parser("search", help="Search movies using keywords")
     subparsers.add_parser("build", help="Build and save the inverted index cache")
-
+    tf_parser = subparsers.add_parser("tf", help="Calculate term frequency for a given document and term")
     search_parser.add_argument("query", type=str, help="Search query")
+    tf_parser.add_argument("doc_id", type=str, help="Document ID for term frequency")
+    tf_parser.add_argument("term", type=str, help="Term to calculate term frequency")
+    idf_parser = subparsers.add_parser("idf", help="Calculate inverse document frequency for a given term")
+    idf_parser.add_argument("term", type=str, help="Term to calculate inverse document frequency")
 
     args = parser.parse_args()
 
@@ -21,6 +25,10 @@ def main() -> None:
                  print(item)
         case "build":
             build_index()
+        case "tf":
+            tf_command(args.doc_id,args.term)
+        case "idf":
+            idf_command(args.term)
         case _:
             parser.print_help()
 
