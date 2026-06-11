@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
-from lib.keyword_search import seach_command
+from lib.keyword_search import seach_command,build_index
 def main() -> None:
     parser = argparse.ArgumentParser(description="Keyword Search CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     search_parser = subparsers.add_parser("search", help="Search movies using keywords")
+    subparsers.add_parser("build", help="Build and save the inverted index cache")
+
     search_parser.add_argument("query", type=str, help="Search query")
 
     args = parser.parse_args()
@@ -17,6 +19,8 @@ def main() -> None:
              result=seach_command(args.query,5)
              for item in result:
                  print(item)
+        case "build":
+            build_index()
         case _:
             parser.print_help()
 
