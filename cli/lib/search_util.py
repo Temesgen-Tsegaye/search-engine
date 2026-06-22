@@ -10,4 +10,4 @@ def load_movies()->list[dict]:
     
 def load_stop_words()->set[str]:
     with open(PROJECT_ROOT / "data" / "stop_words.txt", 'r') as f: 
-        return f.readline()        
+        return set(line.strip() for line in f)        
