@@ -1,5 +1,33 @@
 .env
+.env.local
+.env.*
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.coverage
+coverage/
+.pytest_cache/
+mypy_cache/
+.ruff_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project cache
 cash/
 cache/
