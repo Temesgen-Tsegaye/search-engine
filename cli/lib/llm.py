@@ -1,3 +1,4 @@
+import json
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -29,6 +30,70 @@ def correct_spelling(query: str) -> str:
         messages=[{"role": "user", "content": prompt}],
     )
     return response.choices[0].message.content.strip()
+
+
+def rerank_individual(query: str, doc: dict) -> float:
+    client = _get_client()
+    prompt = (
+        f"Rate how well this movie matches the search query.\n"
+        f"\n"
+        f'Query: "{query}"\n'
+        f"Movie: {doc.get('title', '')} - {doc.get('document', '')}\n"
+        f"\n"
+        f"Consider:\n"
+        f"- Direct relevance to query\n"
+        f"- User intent (what they're looking for)\n"
+        f"- Content appropriateness\n"
+        f"\n"
+        f"Rate 0-10 (10 = perfect match).\n"
+        f"Output ONLY the number in your response, no other text or explanation.\n"
+        f"\n"
+        f"Score:"
+    )
+    response = client.chat.completions.create(
+        model="openrouter/free",
+        messages=[{"role": "user", "content": prompt}],
+    )
+    text = response.choices[0].message.content.strip()
+    try:
+        return float(text)
+    except ValueError:
+        return 0.0
+
+
+def rerank_batch(query: str, docs: list[dict]) -> list[int]:
+    client = _get_client()
+    doc_list_str = "\n".join(
+        f'{d["id"]}: {d["title"]} - {d["document"][:200]}'
+        for d in docs
+    )
+    prompt = (
+        f"Rank the movies listed below by relevance to the following search query.\n"
+        f"\n"
+        f'Query: "{query}"\n'
+        f"\n"
+        f"Movies:\n"
+        f"{doc_list_str}\n"
+        f"\n"
+        f"Return the movie IDs in order of relevance, best match first.\n"
+        f"Your response must be a raw JSON array of integers.\n"
+        f"Do not wrap the JSON in Markdown. Do not use a ```json code block.\n"
+        f"Do not include any explanatory text.\n"
+        f"\n"
+        f"For example:\n"
+        f"[75, 12, 34, 2, 1]\n"
+        f"\n"
+        f"Ranking:"
+    )
+    response = client.chat.completions.create(
+        model="openrouter/free",
+        messages=[{"role": "user", "content": prompt}],
+    )
+    text = response.choices[0].message.content.strip()
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return [d["id"] for d in docs]
 
 
 def expand_query(query: str) -> str:

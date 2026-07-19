@@ -37,6 +37,12 @@ def main() -> None:
         choices=["spell", "rewrite", "expand"],
         help="Query enhancement method",
     )
+    rrf_parser.add_argument(
+        "--rerank-method",
+        type=str,
+        choices=["individual", "batch", "cross_encoder"],
+        help="Re-ranking method",
+    )
 
     normalize_parser = subparsers.add_parser("normalize", help="Min-max normalize scores")
     normalize_parser.add_argument("scores", type=float, nargs="*", help="Scores to normalize")
@@ -54,6 +60,7 @@ def main() -> None:
                 print(f'  BM25: {r["bm25_score"]:.3f}, Semantic: {r["semantic_score"]:.3f}')
                 print(f'  {r["document"]}')
         case "rrf-search":
+            import time
             from lib.hybrid_search import HybridSearch
             query = args.query
             if args.enhance:
@@ -67,14 +74,49 @@ def main() -> None:
                 print(f"Enhanced query ({args.enhance}): '{query}' -> '{enhanced}'\n")
                 query = enhanced
             searcher = HybridSearch(load_movies())
-            results = searcher.rrf_search(query, args.k, args.limit)
-            for i, r in enumerate(results, 1):
+            rerank_limit = args.limit
+            if args.rerank_method:
+                rerank_limit *= 5
+            results = searcher.rrf_search(query, args.k, rerank_limit)
+            if args.rerank_method == "individual":
+                from lib.llm import rerank_individual
+                print(f"Re-ranking top {len(results)} results using individual method...")
+                for r in results:
+                    score = rerank_individual(query, r)
+                    r["rerank_score"] = score
+                    time.sleep(3)
+                results.sort(key=lambda x: x["rerank_score"], reverse=True)
+            elif args.rerank_method == "batch":
+                from lib.llm import rerank_batch
+                print(f"Re-ranking top {len(results)} results using batch method...")
+                ranked_ids = rerank_batch(query, results)
+                rank_map = {doc_id: rank for rank, doc_id in enumerate(ranked_ids, start=1)}
+                for r in results:
+                    r["rerank_rank"] = rank_map.get(r["id"], len(results))
+                results.sort(key=lambda x: x["rerank_rank"])
+            elif args.rerank_method == "cross_encoder":
+                from sentence_transformers import CrossEncoder
+                print(f"Re-ranking top {len(results)} results using cross_encoder method...")
+                pairs = [[query, f"{r['title']} - {r['document']}"] for r in results]
+                cross_encoder = CrossEncoder("cross-encoder/ms-marco-TinyBERT-L2-v2", device="cpu")
+                scores = cross_encoder.predict(pairs)
+                for r, score in zip(results, scores):
+                    r["cross_encoder_score"] = score
+                results.sort(key=lambda x: x["cross_encoder_score"], reverse=True)
+            print(f"Reciprocal Rank Fusion Results for '{query}' (k={args.k}):\n")
+            for i, r in enumerate(results[:args.limit], 1):
                 bm25_rank = r["bm25_rank"] if r["bm25_rank"] is not None else "-"
                 semantic_rank = r["semantic_rank"] if r["semantic_rank"] is not None else "-"
                 print(f'{i}. {r["title"]}')
-                print(f'  RRF Score: {r["score"]:.3f}')
-                print(f'  BM25 Rank: {bm25_rank}, Semantic Rank: {semantic_rank}')
-                print(f'  {r["document"]}')
+                if args.rerank_method == "individual":
+                    print(f'   Re-rank Score: {r.get("rerank_score", 0):.3f}/10')
+                elif args.rerank_method == "batch":
+                    print(f'   Re-rank Rank: {r.get("rerank_rank", "-")}')
+                elif args.rerank_method == "cross_encoder":
+                    print(f'   Cross Encoder Score: {r.get("cross_encoder_score", 0):.3f}')
+                print(f'   RRF Score: {r["score"]:.3f}')
+                print(f'   BM25 Rank: {bm25_rank}, Semantic Rank: {semantic_rank}')
+                print(f'   {r["document"]}')
         case "normalize":
             normalized = normalize_scores(args.scores)
             for score in normalized:
