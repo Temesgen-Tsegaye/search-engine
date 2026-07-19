@@ -126,7 +126,13 @@ class ChunkedSemanticSearch(SemanticSearch):
             if not description:
                 continue
 
-            sentences = re.split(r"(?<=[.!?])\s+", description)
+            text = description.strip()
+            if not text:
+                continue
+
+            sentences = re.split(r"(?<=[.!?])\s+", text)
+            if len(sentences) == 1 and not sentences[0][-1] in ".!?":
+                sentences = [text]
 
             chunk_size = 4
             overlap = 1
@@ -136,6 +142,13 @@ class ChunkedSemanticSearch(SemanticSearch):
             while start < len(sentences):
                 end = start + chunk_size
                 chunk_sentences = sentences[start:end]
+                chunk_sentences = [s.strip() for s in chunk_sentences]
+                chunk_sentences = [s for s in chunk_sentences if s]
+
+                if not chunk_sentences:
+                    start = end
+                    continue
+
                 chunk = " ".join(chunk_sentences)
                 doc_chunks.append(chunk)
 

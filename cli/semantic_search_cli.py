@@ -113,24 +113,36 @@ def main() -> None:
            else:
                start = end
         case "semantic_chunk":
-         sentences = re.split(r"(?<=[.!?])\s+", args.text)
-     
+         text = args.text.strip()
+         if not text:
+             return
+
+         sentences = re.split(r"(?<=[.!?])\s+", text)
+         if len(sentences) == 1 and not sentences[0][-1] in ".!?":
+             sentences = [text]
+
          start = 0
          chunk_number = 1
-     
+
          print(f"Semantically chunking {len(args.text)} characters")
-     
+
          while start < len(sentences):
              end = start + args.max_chunk_size
-     
+
              chunk_sentences = sentences[start:end]
-     
+             chunk_sentences = [s.strip() for s in chunk_sentences]
+             chunk_sentences = [s for s in chunk_sentences if s]
+
+             if not chunk_sentences:
+                 start = end
+                 continue
+
              chunk = " ".join(chunk_sentences)
-     
+
              print(f"{chunk_number}. {chunk}")
-     
+
              chunk_number += 1
-     
+
              if args.overlap > 0:
                  start = end - args.overlap
              else:
