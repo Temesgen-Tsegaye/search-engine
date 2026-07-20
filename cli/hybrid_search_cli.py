@@ -43,6 +43,7 @@ def main() -> None:
         choices=["individual", "batch", "cross_encoder"],
         help="Re-ranking method",
     )
+    rrf_parser.add_argument("--debug", action="store_true", help="Enable debug logging")
 
     normalize_parser = subparsers.add_parser("normalize", help="Min-max normalize scores")
     normalize_parser.add_argument("scores", type=float, nargs="*", help="Scores to normalize")
@@ -62,6 +63,10 @@ def main() -> None:
         case "rrf-search":
             import time
             from lib.hybrid_search import HybridSearch
+
+            if args.debug:
+                print(f"[DEBUG] Original query: '{args.query}'")
+
             query = args.query
             if args.enhance:
                 from lib.llm import correct_spelling, expand_query
@@ -71,13 +76,21 @@ def main() -> None:
                     enhanced = expand_query(query)
                 else:
                     enhanced = query
+                if args.debug:
+                    print(f"[DEBUG] Enhanced query ({args.enhance}): '{query}' -> '{enhanced}'")
                 print(f"Enhanced query ({args.enhance}): '{query}' -> '{enhanced}'\n")
                 query = enhanced
+
             searcher = HybridSearch(load_movies())
             rerank_limit = args.limit
             if args.rerank_method:
                 rerank_limit *= 5
             results = searcher.rrf_search(query, args.k, rerank_limit)
+
+            if args.debug:
+                print(f"[DEBUG] RRF search returned {len(results)} results:")
+                for r in results:
+                    print(f"  - {r['title']} (RRF score: {r['score']:.4f})")
             if args.rerank_method == "individual":
                 from lib.llm import rerank_individual
                 print(f"Re-ranking top {len(results)} results using individual method...")
@@ -103,6 +116,13 @@ def main() -> None:
                 for r, score in zip(results, scores):
                     r["cross_encoder_score"] = score
                 results.sort(key=lambda x: x["cross_encoder_score"], reverse=True)
+
+            if args.debug:
+                print(f"[DEBUG] Final results after re-ranking:")
+                for r in results:
+                    label = "cross_encoder_score" if args.rerank_method == "cross_encoder" else "score"
+                    print(f"  - {r['title']} (score: {r.get(label, r['score']):.4f})")
+
             print(f"Reciprocal Rank Fusion Results for '{query}' (k={args.k}):\n")
             for i, r in enumerate(results[:args.limit], 1):
                 bm25_rank = r["bm25_rank"] if r["bm25_rank"] is not None else "-"
